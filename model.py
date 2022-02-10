@@ -20,7 +20,7 @@ def resblock_no_bottleneck(X, n_filter, idx, n_block, init, decay):
     init    (tf.keras.initializers): layer initializer. default=HeNormal
     decay   (tf.keras.regularizers): weight regularizer. default=L2
   Return
-    tf.Tensor:  feature map (batch, n, n, c)
+    tf.Tensor:  feature map (batch, H, W, C)
   '''
   name_base = f'{idx+1}_{n_block+1}'
   f1, f2 = n_filter
