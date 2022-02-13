@@ -8,10 +8,6 @@
 ### conifg.py
 * Configuring hyperparameters and model architectue
 
-### dataset.py
-* Downloading cifar10 dataset from tf.keras.dataset
-* Spliting dataset into train and validation
-
 ### main.py
 
 ### model.py
@@ -21,3 +17,6 @@
 
 ### pipeline.py
 * Building data loading pipeline
+* Downloading cifar10 dataset from tf.keras.dataset
+* Spliting dataset into train and validation
+* Augmenting dataset
