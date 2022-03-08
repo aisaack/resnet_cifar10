@@ -7,7 +7,7 @@ def load_cifar10():
   '''
   return cifar10.load_data()
 
-def load_data(feature, label,  batch_size, augmentations:list=None, split_ratio=0.2):
+def input_pipeline(feature, label,  batch_size, augmentations:list=None, split_ratio=0.2):
   '''Build input pipeline
   
   Args
@@ -21,50 +21,52 @@ def load_data(feature, label,  batch_size, augmentations:list=None, split_ratio=
   Return
     tf.data.Dataset object
   '''
-
-  assert 0 <= split_ratio < 1
+  seed = 14234
   ds = tf.data.Dataset.from_tensor_slices((feature, label))
-  # normalize
-  ds = ds.map(lambda x, y: (tf.cast(x, tf.float32) / 255., y))
+  
+  # nomalization
+  ds = ds.map(lambda x, y: (tf.cast(x, tf.float32)/255., y))
 
-  # standardize
-  ds = ds.map(lambda x, y: ((x - tf.math.reduce_mean(x)) / tf.math.reduce_std(x), y))
+  # standardization
+  ds = ds.map(lambda x, y: (x - tf.math.reduce_mean(x) / tf.math.reduce_std(x), y))
   ds = ds.shuffle(buffer_size=1000)
-
-  # split trian validation
+  ds = ds.cache()
+  
+  assert 0 <= val_ratio < 1
   if split_ratio:
-    feature_len = len(feature)
-    train_len = int(feature_len * (1 - split_ratio))
+    data_len = len(x_train)
+    train_len = int(data_len * (1 - val_ratio))
     train_ds = ds.take(train_len)
     val_ds = ds.skip(train_len)
+    print('Splitting is complete')
+  else:
+    train_ds = ds
 
-    mini_batch = int(feature_len / batch_size)
-    val_len = int(feature_len - train_len)
-    val_ds = val_ds.batch(batch_size=int(val_len / mini_batch), drop_remainder=True)
-    val_ds = val_ds.prefetch(buffer_size=1)
-  trian_ds = ds
-
-  # augmentation
   if augmentations:
-    aug = [train_ds]
-    for augment in augmentations:
-      if augment == 'up_down':
-        x = train_ds.map(lambda x, y: (tf.image.flip_up_down(x), y))
-      elif augment == 'left_right':
-        x = train_ds.map(lambda x, y: (tf.image.random_flip_left_right(x), y))
-      elif augment == 'contrast':
-        x = train_ds.map(lambda x, y: (tf.image.random_contrast(x, 0.1, 0.3), y))
-      elif augment == 'bright':
-        x = train_ds.map(lambda x, y: (tf.image.random_brightness(x, 0.1), y))
+    for augment in augmentation:
+      x = train_ds.take(int(train_len * 0.7))
+      x = x.shuffle(buffer_size=1000)
+      if augment == 'random_crop':
+        x = x.map(lambda x, y:(tf.image.resize(x, (40, 40)), y))
+        x = x.map(lambda x, y:(tf.image.random_crop(x, size=(32, 32, 3), seed=seed), y))
+      elif augment == 'flip_left_right':
+        x = x.map(lambda x, y:(tf.image.random_flip_left_right(x, seed=seed), y))
+      elif augment == 'flip_up_down':
+        x = x.map(lambda x, y:(tf.image.random_flip_up_down(x, seed=seed), y))
       else:
-        raise ValueError(f'{augment} is not defined. Use "up_down, left_right, contrast, bright"')
-      aug.append(x)
-    train_ds = tf.data.Dataset.sample_from_datasets(aug, weights=[1/len(aug)] * len(aug))
+        raise ValueError()
+      train_ds = train_ds.concatenate(x)
+      train_ds = train_ds.shuffle(buffer_size=1000)
+      train_ds = train_ds.cache()
+    train_ds = train_ds.batch(batch_size=batch_size, drop_remainder=True)
+    print('Augmentation is complete')
 
-  train_ds = train_ds.shuffle(buffer_size=1000)
-  train_ds = train_ds.cache()
-  train_ds = train_ds.batch(batch_size=batch_size, drop_remainder=True)
-  train_ds = train_ds.prefetch(buffer_size=1)
   if split_ratio:
+    mini_batch = train_ds.cardinality().numpy()
+    val_len = int(data_len - train_len)
+    val_ds = val_ds.batch(batch_size=int(val_len / mini_batch), drop_remainder=False)
+    val_ds = val_ds.prefetch(buffer_size=1)
+    train_ds = train_ds.prefetch(buffer_size=1)
     return train_ds, val_ds
+  train_ds = train_ds.prefetch(buffer_size=1)
   return train_ds
