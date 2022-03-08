@@ -14,7 +14,7 @@ def input_pipeline(feature, label,  batch_size, augmentations:list=None, split_r
     feature     (np.ndarray): x_train data
     label       (np.ndarray): y_train data
     augmentations     (list): list of augmentation methods
-                              {"up_down", "left_right", "contrast", "bright"}
+                              {"random_crop", "flip_up_down", "flip_left_right"}
     split_ratio      (float): ratio of validation data between 0 and 1
                               if it is 0 data splitting is not applied
 
@@ -56,8 +56,8 @@ def input_pipeline(feature, label,  batch_size, augmentations:list=None, split_r
       else:
         raise ValueError()
       train_ds = train_ds.concatenate(x)
-      train_ds = train_ds.shuffle(buffer_size=1000)
-      train_ds = train_ds.cache()
+    train_ds = train_ds.shuffle(buffer_size=1000)
+    train_ds = train_ds.cache()
     train_ds = train_ds.batch(batch_size=batch_size, drop_remainder=True)
     print('Augmentation is complete')
 
