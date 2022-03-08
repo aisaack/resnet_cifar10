@@ -20,7 +20,7 @@ def main(args, callback:list):
     (x_train, y_train), (x_test, y_test) = load_cifar10()
     print('CIFAR10 dataset has been loaded')
 
-    train_ds, val_ds = load_data(x_train, y_train, Config.batch_size, augmentations=['left_right', 'contrast'], split_ratio=0.2)
+    train_ds, val_ds = input_pipeline(x_train, y_train, Config.batch_size, augmentations=['left_right', 'contrast'], split_ratio=0.2)
     print(f'{type(train_ds)} is ready')
 
     model = build_model(args)
