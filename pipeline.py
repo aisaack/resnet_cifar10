@@ -7,64 +7,60 @@ def load_cifar10():
   '''
   return cifar10.load_data()
 
-def load_data(feature, label,  batch_size, augmentations:list=None, split_ratio=0.2):
+def load_data(feature, label,  batch_size, validation_split:float=0.2, pad:int=4):
   '''Build input pipeline
   
   Args
-    feature     (np.ndarray): x_train data
-    label       (np.ndarray): y_train data
-    augmentations     (list): list of augmentation methods
-                              {"up_down", "left_right", "contrast", "bright"}
-    split_ratio      (float): ratio of validation data between 0 and 1
-                              if it is 0 data splitting is not applied
+    feature          (np.ndarray): x_train data
+    label            (np.ndarray): y_train data
+    batch_size              (int): batch_size
+    validation_split      (float): ratio of validation data between 0 and 1
+                                   if it is 0 data splitting is not applied
+    pad                      (int): size of 0 pad at each side
 
   Return
     tf.data.Dataset object
   '''
 
-  assert 0 <= split_ratio < 1
+  assert 0 <= validation_split < 1
   ds = tf.data.Dataset.from_tensor_slices((feature, label))
-  # normalize
-  ds = ds.map(lambda x, y: (tf.cast(x, tf.float32) / 255., y))
-
-  # standardize
-  ds = ds.map(lambda x, y: ((x - tf.math.reduce_mean(x)) / tf.math.reduce_std(x), y))
   ds = ds.shuffle(buffer_size=1000)
+  ds = ds.map(lambda x, y: (tf.cast(x, tf.float32), y))
+  ds = ds.map(lambda x, y: (tf.divide(x, 255.), y))
+  ds = ds.map(lambda x, y:(tf.divide(tf.subtract(x, tf.math.reduce_mean(x)), tf.math.reduce_std(x)), y))
+  ds = ds.cache()
+  N, H, W, C = feature.shape
 
-  # split trian validation
-  if split_ratio:
-    feature_len = len(feature)
-    train_len = int(feature_len * (1 - split_ratio))
-    train_ds = ds.take(train_len)
-    val_ds = ds.skip(train_len)
+  # Splitting validation dataset from train dataset
+  if validation_split:
+    n_val = int(N * validation_split)
+    n_train = int(N - n_val)
+    train_ds = ds.take(n_train)
+    val_ds = ds.skip(n_train)
+  
 
-    mini_batch = int(feature_len / batch_size)
-    val_len = int(feature_len - train_len)
-    val_ds = val_ds.batch(batch_size=int(val_len / mini_batch), drop_remainder=True)
-    val_ds = val_ds.prefetch(buffer_size=1)
-  trian_ds = ds
+  # Data augmentation
+  # Padding 4 pixels each side
+  crop_ds = train_ds.map(lambda x, y: (tf.image.resize_with_crop_or_pad(x, H+pad*2, W+pad*2), y))
 
-  # augmentation
-  if augmentations:
-    aug = [train_ds]
-    for augment in augmentations:
-      if augment == 'up_down':
-        x = train_ds.map(lambda x, y: (tf.image.flip_up_down(x), y))
-      elif augment == 'left_right':
-        x = train_ds.map(lambda x, y: (tf.image.random_flip_left_right(x), y))
-      elif augment == 'contrast':
-        x = train_ds.map(lambda x, y: (tf.image.random_contrast(x, 0.1, 0.3), y))
-      elif augment == 'bright':
-        x = train_ds.map(lambda x, y: (tf.image.random_brightness(x, 0.1), y))
-      else:
-        raise ValueError(f'{augment} is not defined. Use "up_down, left_right, contrast, bright"')
-      aug.append(x)
-    train_ds = tf.data.Dataset.sample_from_datasets(aug, weights=[1/len(aug)] * len(aug))
+  # Random crop
+  crop_ds = crop_ds.map(lambda x, y: (tf.image.random_crop(x, (H, W, C)), y))
+
+  # Horizonal flip from the result of random crop
+  hfilp_ds = crop_ds.map(lambda x, y: (tf.image.random_flip_up_down(x), y))
+
+  # Putting these together
+  train_ds = train_ds.concatenate(crop_ds)
+  train_ds = train_ds.concatenate(hfilp_ds)
 
   train_ds = train_ds.shuffle(buffer_size=1000)
   train_ds = train_ds.cache()
+
   train_ds = train_ds.batch(batch_size=batch_size, drop_remainder=True)
-  train_ds = train_ds.prefetch(buffer_size=1)
-  if split_ratio:
-    return train_ds, val_ds
-  return train_ds
+  train_iter = train_ds.cardinality().numpy()
+  val_ds = val_ds.batch(batch_size=batch_size, drop_remainder=True)
+  val_iter = val_ds.cardinality().numpy()
+  train_ds.prefetch(1)
+  val_ds.prefetch(1)
+  print(f'train iteration: {train_iter}, val iteration: {val_iter}')
+  return train_ds, val_ds

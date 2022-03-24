@@ -8,7 +8,7 @@ class BaseConfig:
   '''DO NOT MODIFY THIS FILE'''
   epochs = 60
   batch_size = 128
-  lr = 0.005
+  lr = 1e-2
   decay_rate = 1e-4
   momentum = 0.9
   input_shape = (32, 32, 3)
