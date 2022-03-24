@@ -7,7 +7,6 @@ def load_cifar10():
   '''
   return cifar10.load_data()
 
-<<<<<<< HEAD
 def load_data(feature, label,  batch_size, validation_split:float=0.2, pad:int=4):
   '''Build input pipeline
   
@@ -18,23 +17,10 @@ def load_data(feature, label,  batch_size, validation_split:float=0.2, pad:int=4
     validation_split      (float): ratio of validation data between 0 and 1
                                    if it is 0 data splitting is not applied
     pad                      (int): size of 0 pad at each side
-=======
-def input_pipeline(feature, label,  batch_size, augmentations:list=None, split_ratio=0.2):
-  '''Build input pipeline
-  
-  Args
-    feature     (np.ndarray): x_train data
-    label       (np.ndarray): y_train data
-    augmentations     (list): list of augmentation methods
-                              {"random_crop", "flip_up_down", "flip_left_right"}
-    split_ratio      (float): ratio of validation data between 0 and 1
-                              if it is 0 data splitting is not applied
->>>>>>> a670c13ac64221b5feebbdc4e007053c6503c2a5
 
   Return
     tf.data.Dataset object
   '''
-<<<<<<< HEAD
 
   assert 0 <= validation_split < 1
   ds = tf.data.Dataset.from_tensor_slices((feature, label))
@@ -78,54 +64,3 @@ def input_pipeline(feature, label,  batch_size, augmentations:list=None, split_r
   val_ds.prefetch(1)
   print(f'train iteration: {train_iter}, val iteration: {val_iter}')
   return train_ds, val_ds
-=======
-  seed = 14234
-  ds = tf.data.Dataset.from_tensor_slices((feature, label))
-  
-  # nomalization
-  ds = ds.map(lambda x, y: (tf.cast(x, tf.float32)/255., y))
-
-  # standardization
-  ds = ds.map(lambda x, y: (x - tf.math.reduce_mean(x) / tf.math.reduce_std(x), y))
-  ds = ds.shuffle(buffer_size=1000)
-  ds = ds.cache()
-  
-  assert 0 <= val_ratio < 1
-  if split_ratio:
-    data_len = len(x_train)
-    train_len = int(data_len * (1 - val_ratio))
-    train_ds = ds.take(train_len)
-    val_ds = ds.skip(train_len)
-    print('Splitting is complete')
-  else:
-    train_ds = ds
-
-  if augmentations:
-    for augment in augmentation:
-      x = train_ds.take(int(train_len * 0.7))
-      x = x.shuffle(buffer_size=1000)
-      if augment == 'random_crop':
-        x = x.map(lambda x, y:(tf.image.resize(x, (40, 40)), y))
-        x = x.map(lambda x, y:(tf.image.random_crop(x, size=(32, 32, 3), seed=seed), y))
-      elif augment == 'flip_left_right':
-        x = x.map(lambda x, y:(tf.image.random_flip_left_right(x, seed=seed), y))
-      elif augment == 'flip_up_down':
-        x = x.map(lambda x, y:(tf.image.random_flip_up_down(x, seed=seed), y))
-      else:
-        raise ValueError()
-      train_ds = train_ds.concatenate(x)
-    train_ds = train_ds.shuffle(buffer_size=1000)
-    train_ds = train_ds.cache()
-    train_ds = train_ds.batch(batch_size=batch_size, drop_remainder=True)
-    print('Augmentation is complete')
-
-  if split_ratio:
-    mini_batch = train_ds.cardinality().numpy()
-    val_len = int(data_len - train_len)
-    val_ds = val_ds.batch(batch_size=int(val_len / mini_batch), drop_remainder=False)
-    val_ds = val_ds.prefetch(buffer_size=1)
-    train_ds = train_ds.prefetch(buffer_size=1)
-    return train_ds, val_ds
-  train_ds = train_ds.prefetch(buffer_size=1)
-  return train_ds
->>>>>>> a670c13ac64221b5feebbdc4e007053c6503c2a5
